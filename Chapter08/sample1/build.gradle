@@ -38,11 +38,12 @@ checkstyle {
     toolVersion = "8.29"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
     ignoreFailures = false
-    showViolations = true
+}
+
+tasks.withType(Checkstyle).configureEach {
     reports {
-        xml.required = false
         html.required = true
-        html.destination file("${buildDir}/reports/checkstyle/main.html")
+        html.outputLocation = file("${buildDir}/reports/checkstyle/main.html")
     }
 }
 
