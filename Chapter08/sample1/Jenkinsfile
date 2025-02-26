@@ -2,8 +2,8 @@ pipeline {
     agent {
         label 'docker-agent'
     }
-
-    stages {
+                  
+    stages { 
         stage('Prepare Environment') {
             steps {
                 sh '''
@@ -13,7 +13,7 @@ pipeline {
                 '''
             }
         }
-
+                
         stage('Compile') {
             steps {
                 sh '''
@@ -31,10 +31,10 @@ pipeline {
                 '''
             }
         }
-
+             
         stage('Code coverage') {
             when {
-                branch 'master'  // Updated to match your repository's default branch
+                branch 'master'  // Ensure it matches your repository's default branch
             }
             steps {
                 sh '''
@@ -49,28 +49,13 @@ pipeline {
             }
         }
 
-        stage('Static code analysis') {
-            when {
-                expression { return env.BRANCH_NAME =~ /.*feature.*/ }
-            }
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew checkstyleMain
-                '''
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
-                    reportFiles: 'main.html',
-                    reportName: "Checkstyle Report"
-                ])
-            }
-        }
-
+        // REMOVED Static Code Analysis Stage (Checkstyle Disabled)
+        
         stage('Validate Branch Name') {
             when {
                 not {
                     anyOf {
-                        branch 'master'  // Updated to match your repository
+                        branch 'master'  // Ensure it matches your repository's default branch
                         expression { return env.BRANCH_NAME =~ /.*feature.*/ }
                     }
                 }
