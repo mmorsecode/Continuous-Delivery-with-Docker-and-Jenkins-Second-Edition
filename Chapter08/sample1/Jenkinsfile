@@ -34,7 +34,7 @@ pipeline {
 
         stage('Code coverage') {
             when {
-                branch 'main'
+                branch 'master'  // Updated to match your repository's default branch
             }
             steps {
                 sh '''
@@ -70,13 +70,13 @@ pipeline {
             when {
                 not {
                     anyOf {
-                        branch 'main'
+                        branch 'master'  // Updated to match your repository
                         expression { return env.BRANCH_NAME =~ /.*feature.*/ }
                     }
                 }
             }
             steps {
-                error 'This branch is neither main nor a feature branch. Pipeline fails!'
+                error 'This branch is neither master nor a feature branch. Pipeline fails!'
             }
         }
     }
