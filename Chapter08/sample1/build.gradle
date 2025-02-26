@@ -42,7 +42,8 @@ checkstyle {
 
 tasks.withType(Checkstyle).configureEach {
     reports {
-        html.destination file("${buildDir}/reports/checkstyle/main.html")
+        xml.destination file("${buildDir}/reports/checkstyle/checkstyle.xml")
+        html.destination file("${buildDir}/reports/checkstyle/checkstyle.html")
     }
 }
 
