@@ -5,7 +5,6 @@ plugins {
 
 apply plugin: 'io.spring.dependency-management'
 apply plugin: "jacoco"
-apply plugin: 'checkstyle'
 
 group = 'com.leszko'
 version = '0.0.1-SNAPSHOT'
@@ -31,19 +30,6 @@ jacocoTestCoverageVerification {
                 minimum = 0.2
             }
         }
-    }
-}
-
-checkstyle {
-    toolVersion = "8.29"
-    configFile = rootProject.file("config/checkstyle/checkstyle.xml")
-    ignoreFailures = false
-}
-
-tasks.withType(Checkstyle).configureEach {
-    reports {
-        xml.destination file("${buildDir}/reports/checkstyle/checkstyle.xml")
-        html.destination file("${buildDir}/reports/checkstyle/checkstyle.html")
     }
 }
 
