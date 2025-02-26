@@ -42,8 +42,9 @@ checkstyle {
 
 tasks.withType(Checkstyle).configureEach {
     reports {
-        html.required = true
-        html.outputLocation = file("${buildDir}/reports/checkstyle/main.html")
+        html {
+            outputLocation = file("${buildDir}/reports/checkstyle/main.html")
+        }
     }
 }
 
