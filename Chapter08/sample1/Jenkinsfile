@@ -81,6 +81,20 @@ pipeline {
                 ])
             }
         }
+
+        stage('Validate Branch Name') {
+            when {
+                not {
+                    anyOf {
+                        branch 'master'
+                        expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+                    }
+                }
+            }
+            steps {
+                error 'This branch is neither master nor a feature branch. Pipeline fails!'
+            }
+        }
     }
 
     post {
