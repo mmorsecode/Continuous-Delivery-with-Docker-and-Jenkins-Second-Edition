@@ -1,105 +1,56 @@
 pipeline {
-    agent { label 'docker-agent' }
+    agent any
+
+    triggers {
+        genericTrigger(
+            genericVariables: [
+                [key: 'action', value: '$.action'],
+                [key: 'pr_number', value: '$.pull_request.number']
+            ],
+            token: 'UML',
+            causeString: 'Triggered by PR #${pr_number}',
+            printPostContent: true
+        )
+    }
 
     environment {
-        GRADLE_CACHE = '/home/jenkins/.gradle'  // Ensure Gradle cache is used
+        IS_MAIN = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim() == 'main'
     }
 
     stages {
-        stage('Validate PR Trigger') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Run Tests') {
             steps {
                 script {
-                    if (!env.CHANGE_ID) {
-                        error "Pipeline aborted. Only pull requests (PRs) trigger builds."
-                    }
-                    echo "Pipeline started for PR #${env.CHANGE_ID}"
-                }
-            }
-        }
-
-        stage('Prepare Environment') {
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                chmod +x gradlew
-                ls -l gradlew
-                '''
-            }
-        }
-
-        stage('Compile') {
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew compileJava
-                '''
-            }
-        }
-
-        stage('Unit test') {
-            steps {
-                script {
-                    def testResult = sh(script: '''
-                        cd Chapter08/sample1
-                        ./gradlew test || echo "tests fail!"
-                    ''', returnStatus: true)
-
-                    if (testResult == 0) {
-                        echo "tests pass!"
+                    if (env.IS_MAIN) {
+                        echo "Running Code Coverage Tests..."
+                        sh 'mvn verify'
                     } else {
-                        echo "tests fail!"
+                        echo "Running Unit and Integration Tests..."
+                        sh 'mvn test'
                     }
                 }
             }
         }
-
-        stage('Static Code Analysis') {
-            when {
-                expression { return env.BRANCH_NAME =~ /.*feature.*/ }
-            }
+        stage('Generate Jacoco Report') {
             steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew check
-                '''
-            }
-        }
-
-        stage('Code Coverage') {
-            when {
-                branch 'master'
-            }
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew jacocoTestReport
-                '''
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
-                    reportFiles: 'index.html',
-                    reportName: "JaCoCo Code Coverage"
-                ])
-            }
-        }
-
-        stage('Validate Branch Name') {
-            when {
-                not {
-                    anyOf {
-                        branch 'master'
-                        expression { return env.BRANCH_NAME =~ /.*feature.*/ }
-                    }
+                script {
+                    sh 'mvn jacoco:report'
+                    echo "Jacoco report generated"
                 }
-            }
-            steps {
-                error 'This branch is neither master nor a feature branch. Pipeline fails!'
             }
         }
     }
-
     post {
-        always {
-            echo "Job finished: ${currentBuild.currentResult}"
+        success {
+            echo "tests pass!"
+        }
+        failure {
+            echo "tests fail!"
         }
     }
 }
