@@ -51,7 +51,10 @@ pipeline {
 
         stage('Static code analysis') {
             when {
-                changeRequest() || branch 'master'
+                anyOf {
+                    changeRequest()
+                    branch 'master'
+                }
             }
             steps {
                 sh '''
