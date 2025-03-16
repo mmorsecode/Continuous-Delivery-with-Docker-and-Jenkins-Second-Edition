@@ -1,4 +1,4 @@
-pipeline {
+adfpipeline {
     agent { label 'docker-agent' }
 
     environment {
