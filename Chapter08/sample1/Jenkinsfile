@@ -1,56 +1,117 @@
 pipeline {
-    agent any
-
-    triggers {
-        genericTrigger(
-            genericVariables: [
-                [key: 'action', value: '$.action'],
-                [key: 'pr_number', value: '$.pull_request.number']
-            ],
-            token: 'UML',
-            causeString: 'Triggered by PR #${pr_number}',
-            printPostContent: true
-        )
-    }
-
-    environment {
-        IS_MAIN = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim() == 'main'
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-        stage('Run Tests') {
-            steps {
-                script {
-                    if (env.IS_MAIN) {
-                        echo "Running Code Coverage Tests..."
-                        sh 'mvn verify'
-                    } else {
-                        echo "Running Unit and Integration Tests..."
-                        sh 'mvn test'
-                    }
-                }
-            }
-        }
-        stage('Generate Jacoco Report') {
-            steps {
-                script {
-                    sh 'mvn jacoco:report'
-                    echo "Jacoco report generated"
-                }
-            }
-        }
-    }
-    post {
-        success {
-            echo "tests pass!"
-        }
-        failure {
-            echo "tests fail!"
-        }
-    }
-}
+     agent {
+         label 'docker-agent'
+     agent { label 'docker-agent' }
+ 
+     environment {
+         GRADLE_CACHE = '/home/jenkins/.gradle'  // Ensure Gradle cache is used
+     }
+ 
+     stages {
+         stage('Validate PR Trigger') {
+             steps {
+                 script {
+                     if (!env.CHANGE_ID) {
+                         error "Pipeline aborted. Only pull requests (PRs) trigger builds."
+                     }
+                     echo "Pipeline started for PR #${env.CHANGE_ID}"
+                 }
+             }
+         }
+ 
+         stage('Prepare Environment') {
+             steps {
+                 sh '''
+ @@ -25,69 +38,54 @@ pipeline {
+ 
+         stage('Unit test') {
+             steps {
+                 sh '''
+                 cd Chapter08/sample1
+                 ./gradlew test
+                 '''
+                 script {
+                     def testResult = sh(script: '''
+                         cd Chapter08/sample1
+                         ./gradlew test || echo "tests fail!"
+                     ''', returnStatus: true)
+ 
+                     if (testResult == 0) {
+                         echo "tests pass!"
+                     } else {
+                         echo "tests fail!"
+                     }
+                 }
+             }
+         }
+ 
+         stage('Code coverage') {
+         stage('Static Code Analysis') {
+             when {
+                 branch 'master'  // Updated to match your repository's default branch
+                 expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+             }
+             steps {
+                 sh '''
+                 cd Chapter08/sample1
+                 ./gradlew jacocoTestReport
+                 ./gradlew check
+                 '''
+                 publishHTML(target: [
+                     reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
+                     reportFiles: 'index.html',
+                     reportName: "JaCoCo Code Coverage"
+                 ])
+             }
+         }
+ 
+         stage('Static code analysis') {
+         stage('Code Coverage') {
+             when {
+                 expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+                 branch 'master'
+             }
+             steps {
+                 sh '''
+                 cd Chapter08/sample1
+                 ./gradlew checkstyleMain
+                 ./gradlew jacocoTestReport
+                 '''
+                 publishHTML(target: [
+                     reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
+                     reportFiles: 'main.html',
+                     reportName: "Checkstyle Report"
+                     reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
+                     reportFiles: 'index.html',
+                     reportName: "JaCoCo Code Coverage"
+                 ])
+             }
+         }
+ 
+         stage('Validate Branch Name') {
+             when {
+                 not {
+                     anyOf {
+                         branch 'master'  // Updated to match your repository
+                         expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+                     }
+                 }
+             }
+             steps {
+                 error 'This branch is neither master nor a feature branch. Pipeline fails!'
+             }
+         }
+     }
+ 
+     post {
+         success {
+             echo 'Pipeline completed successfully!'
+         }
+         failure {
+             echo 'Pipeline failed!'
+         always {
+             echo "Job finished: ${currentBuild.currentResult}"
+         }
+     }
+ }
+ 
