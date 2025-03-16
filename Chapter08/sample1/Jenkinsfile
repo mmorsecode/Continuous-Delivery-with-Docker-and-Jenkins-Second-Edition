@@ -34,7 +34,7 @@ pipeline {
 
         stage('Code coverage') {
             when {
-                branch 'master'  // Updated to match your repository's default branch
+                branch 'master'
             }
             steps {
                 sh '''
@@ -51,7 +51,10 @@ pipeline {
 
         stage('Static code analysis') {
             when {
-                expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+                anyOf {
+                    changeRequest()
+                    branch 'master'
+                }
             }
             steps {
                 sh '''
@@ -70,7 +73,7 @@ pipeline {
             when {
                 not {
                     anyOf {
-                        branch 'master'  // match your repository
+                        branch 'master'
                         expression { return env.BRANCH_NAME =~ /.*feature.*/ }
                     }
                 }
@@ -83,10 +86,10 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'tests pass!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo 'tests fail!'
         }
     }
 }
