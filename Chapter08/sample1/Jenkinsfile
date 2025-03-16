@@ -34,7 +34,7 @@ pipeline {
 
         stage('Code coverage') {
             when {
-                branch 'master'  
+                branch 'master'  // Updated to match your repository's default branch
             }
             steps {
                 sh '''
@@ -90,3 +90,4 @@ pipeline {
         }
     }
 }
+
