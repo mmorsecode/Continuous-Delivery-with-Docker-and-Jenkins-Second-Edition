@@ -58,11 +58,6 @@ pipeline {
                 cd Chapter08/sample1
                 ./gradlew checkstyleMain
                 '''
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
-                    reportFiles: 'main.html',
-                    reportName: "Checkstyle Report"
-                ])
             }
         }
 
