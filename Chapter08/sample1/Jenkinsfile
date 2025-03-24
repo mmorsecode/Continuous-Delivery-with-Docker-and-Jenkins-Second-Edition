@@ -1,121 +1,56 @@
 pipeline {
     agent {
-        label 'docker-agent'
+        docker {
+            image 'dlambrig/gradle-agent:latest'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            alwaysPull true
+            customWorkspace '/home/jenkins/.gradle/workspace'
+        }
     }
-
     environment {
-        IMAGE_NAME = 'localhost:5001/calculator'
-        DOCKER_USER = 'testuser'
-        DOCKER_PASS = 'testpassword'
+        REGISTRY = "https://localhost:5001" // Replace if needed
+        REGISTRY_HOST = "localhost:5001"
+        PROJECT_DIR = "Chapter08/sample1"
+        IMAGE_NAME = "calculator"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
-
     stages {
-        stage('Prepare Environment') {
+        stage('Checkout code and prepare environment') {
             steps {
+                git url: 'https://github.com/mmorsecode/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git', branch: 'feature/webhook-test'
                 sh '''
-                cd Chapter08/sample1
-                chmod +x gradlew
-                ls -l gradlew
+                    set -e
+                    cd ${PROJECT_DIR}
+                    chmod +x gradlew
                 '''
             }
         }
 
-        stage('Compile') {
+        stage('Build') {
             steps {
                 sh '''
-                cd Chapter08/sample1
-                ./gradlew compileJava
+                    set -e
+                    cd ${PROJECT_DIR}
+                    ./gradlew build
                 '''
             }
         }
 
-        stage('Unit Test') {
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew test
-                '''
-            }
-        }
-
-        stage('Code Coverage') {
-            when {
-                branch 'master'
-            }
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew jacocoTestReport
-                '''
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
-                    reportFiles: 'index.html',
-                    reportName: "JaCoCo Code Coverage"
-                ])
-            }
-        }
-
-        stage('Static Analysis') {
-            when {
-                anyOf {
-                    changeRequest()
-                    branch 'master'
-                }
-            }
-            steps {
-                sh '''
-                cd Chapter08/sample1
-                ./gradlew checkstyleMain
-                '''
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
-                    reportFiles: 'main.html',
-                    reportName: "Checkstyle Report"
-                ])
-            }
-        }
-
-        stage('Validate Branch Name') {
-            when {
-                not {
-                    anyOf {
-                        branch 'master'
-                        expression { return env.BRANCH_NAME =~ /.*feature.*/ }
-                    }
-                }
-            }
-            steps {
-                error 'This branch is neither master nor a feature branch. Pipeline fails!'
-            }
-        }
-
-        stage('Build & Push Docker Image') {
-            when {
-                branch 'feature/webhook-test'
-            }
+        stage('Login to Registry and build image') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh '''
-                        cd Chapter08/sample1
-                        ./gradlew build
-
-                        echo $PASS | docker login https://localhost:5001 -u $USER --password-stdin
-                        docker build -t $IMAGE_NAME .
-                        docker push $IMAGE_NAME
+                            set -e
+                            cd ${PROJECT_DIR}
+                            echo "$DOCKER_PASS" | docker login $REGISTRY -u "$DOCKER_USER" --password-stdin
+                            docker build -t ${IMAGE_NAME} .
+                            docker tag ${IMAGE_NAME} ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
                         '''
                     }
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo 'tests pass!'
-        }
-        failure {
-            echo 'tests fail!'
         }
     }
 }
