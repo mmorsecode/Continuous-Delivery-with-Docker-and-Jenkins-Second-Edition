@@ -33,7 +33,7 @@ pipeline {
 
         stage('Code Coverage') {
             when {
-                branch 'main'
+                branch 'master'
             }
             steps {
                 sh "cd $PROJECT_DIR && ./gradlew jacocoTestReport"
@@ -48,7 +48,7 @@ pipeline {
         stage('Static Analysis') {
             when {
                 anyOf {
-                    branch 'main'
+                    branch 'master'
                     expression { return env.BRANCH_NAME =~ /feature.*/ }
                 }
             }
@@ -66,30 +66,27 @@ pipeline {
             when {
                 not {
                     anyOf {
-                        branch 'main'
+                        branch 'master'
                         branch 'playground'
                         expression { return env.BRANCH_NAME =~ /feature.*/ }
                     }
                 }
             }
             steps {
-                error 'Invalid branch: must be main, feature/*, or playground.'
+                error 'Invalid branch: must be master, feature/*, or playground.'
             }
         }
 
         stage('Build & Push Docker Image') {
             when {
-                allOf {
-                    not { branch 'playground' }
-                    expression { return currentBuild.currentResult == 'SUCCESS' }
-                }
+                not { branch 'playground' }
             }
             steps {
                 script {
                     def imageTag = ""
                     def fullImageName = ""
 
-                    if (env.BRANCH_NAME == 'main') {
+                    if (env.BRANCH_NAME == 'master') {
                         imageTag = "1.0"
                         fullImageName = "${IMAGE_NAME}:${imageTag}"
                     } else if (env.BRANCH_NAME.startsWith('feature')) {
