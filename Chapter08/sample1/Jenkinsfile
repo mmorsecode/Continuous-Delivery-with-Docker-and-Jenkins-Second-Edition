@@ -1,19 +1,14 @@
 pipeline {
-    agent {
-        docker {
-            image 'dlambrig/gradle-agent:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-            alwaysPull true
-            customWorkspace '/home/jenkins/.gradle/workspace'
-        }
-    }
+    agent { label 'docker-agent' }
+
     environment {
-        REGISTRY = "https://localhost:5001" // Replace if needed
-        REGISTRY_HOST = "localhost:5001"
-        PROJECT_DIR = "Chapter08/sample1"
-        IMAGE_NAME = "calculator"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY       = "https://localhost:5001"
+        REGISTRY_HOST  = "localhost:5001"
+        PROJECT_DIR    = "Chapter08/sample1"
+        IMAGE_NAME     = "calculator"
+        IMAGE_TAG      = "${BUILD_NUMBER}"
     }
+
     stages {
         stage('Checkout code and prepare environment') {
             steps {
