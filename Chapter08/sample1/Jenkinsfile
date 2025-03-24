@@ -1,52 +1,72 @@
 pipeline {
-    agent { label 'docker-agent' }
+  agent {
+    docker {
+      image 'dlambrig/gradle-agent:latest'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+      alwaysPull true
+      customWorkspace '/home/jenkins/.gradle/workspace'
+    }
+  }
 
-    environment {
-        REGISTRY       = "https://localhost:5001"
-        REGISTRY_HOST  = "localhost:5001"
-        PROJECT_DIR    = "Chapter08/sample1"
-        IMAGE_NAME     = "calculator"
-        IMAGE_TAG      = "${BUILD_NUMBER}"
+  environment {
+    REGISTRY       = "https://localhost:5001" // Replace with actual registry if needed
+    REGISTRY_HOST  = "localhost:5001"
+    PROJECT_DIR    = "Chapter08/sample1"
+    IMAGE_NAME     = "calculator"
+    IMAGE_TAG      = "${BUILD_NUMBER}"
+  }
+
+  stages {
+    stage('Install Docker CLI') {
+      steps {
+        sh '''
+          apt-get update
+          apt-get install -y docker.io
+        '''
+      }
     }
 
-    stages {
-        stage('Checkout code and prepare environment') {
-            steps {
-                git url: 'https://github.com/mmorsecode/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git', branch: 'feature/webhook-test'
-                sh '''
-                    set -e
-                    cd ${PROJECT_DIR}
-                    chmod +x gradlew
-                '''
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh '''
-                    set -e
-                    cd ${PROJECT_DIR}
-                    ./gradlew build
-                '''
-            }
-        }
-
-        stage('Login to Registry and build image') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            set -e
-                            cd ${PROJECT_DIR}
-                            echo "$DOCKER_PASS" | docker login $REGISTRY -u "$DOCKER_USER" --password-stdin
-                            docker build -t ${IMAGE_NAME} .
-                            docker tag ${IMAGE_NAME} ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
-                            docker push ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
-                        '''
-                    }
-                }
-            }
-        }
+    stage('Checkout code and prepare environment') {
+      steps {
+        git url: 'https://github.com/mmorsecode/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git', branch: 'feature/webhook-test'
+        sh """
+          set -e
+          cd ${PROJECT_DIR}
+          chmod +x gradlew
+        """
+      }
     }
+
+    stage('Build') {
+      steps {
+        sh """
+          set -e
+          cd ${PROJECT_DIR}
+          ./gradlew build
+        """
+      }
+    }
+
+    stage('Login to Registry and build image') {
+      steps {
+        script {
+          withCredentials([usernamePassword(
+            credentialsId: 'docker-registry',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+          )]) {
+            sh """
+              set -e
+              cd ${PROJECT_DIR}
+              echo "\$DOCKER_PASS" | docker login \$REGISTRY -u \$DOCKER_USER --password-stdin
+              docker build -t ${IMAGE_NAME} .
+              docker tag ${IMAGE_NAME} ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
+              docker push ${REGISTRY_HOST}/${IMAGE_NAME}:${IMAGE_TAG}
+            """
+          }
+        }
+      }
+    }
+  }
 }
 
