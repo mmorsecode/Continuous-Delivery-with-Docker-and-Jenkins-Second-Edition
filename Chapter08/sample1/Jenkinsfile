@@ -1,9 +1,6 @@
 pipeline {
     agent {
-        docker {
-            image 'leszko/jenkins-docker-slave'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
+        label 'docker-agent'
     }
 
     environment {
@@ -76,7 +73,7 @@ pipeline {
                 }
             }
             steps {
-                error 'Invalid branch: must be master, feature/*, or playground.'
+                error '❌ Invalid branch: must be master, feature/*, or playground.'
             }
         }
 
@@ -96,6 +93,9 @@ pipeline {
                         imageTag = "feature-0.1"
                         fullImageName = "${IMAGE_NAME}-${imageTag}"
                     }
+
+                    // Build & push only if Docker is available
+                    sh "which docker || (echo 'Docker not installed on this agent!' && exit 1)"
 
                     withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
