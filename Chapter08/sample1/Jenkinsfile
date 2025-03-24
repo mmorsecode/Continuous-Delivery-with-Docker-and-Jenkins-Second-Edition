@@ -4,30 +4,37 @@ pipeline {
     }
 
     environment {
-        PROJECT_DIR = "Chapter08/sample1"
-        REGISTRY = "localhost:5001"
-        IMAGE_NAME = "calculator"
+        IMAGE_NAME = 'localhost:5001/calculator'
+        DOCKER_USER = 'testuser'
+        DOCKER_PASS = 'testpassword'
     }
 
     stages {
         stage('Prepare Environment') {
             steps {
                 sh '''
-                cd $PROJECT_DIR
+                cd Chapter08/sample1
                 chmod +x gradlew
+                ls -l gradlew
                 '''
             }
         }
 
         stage('Compile') {
             steps {
-                sh "cd $PROJECT_DIR && ./gradlew compileJava"
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew compileJava
+                '''
             }
         }
 
         stage('Unit Test') {
             steps {
-                sh "cd $PROJECT_DIR && ./gradlew test"
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew test
+                '''
             }
         }
 
@@ -36,11 +43,14 @@ pipeline {
                 branch 'master'
             }
             steps {
-                sh "cd $PROJECT_DIR && ./gradlew jacocoTestReport"
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew jacocoTestReport
+                '''
                 publishHTML(target: [
-                    reportDir: "$PROJECT_DIR/build/reports/jacoco/test/html",
+                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
                     reportFiles: 'index.html',
-                    reportName: "JaCoCo Report"
+                    reportName: "JaCoCo Code Coverage"
                 ])
             }
         }
@@ -48,63 +58,52 @@ pipeline {
         stage('Static Analysis') {
             when {
                 anyOf {
+                    changeRequest()
                     branch 'master'
-                    expression { return env.BRANCH_NAME =~ /feature.*/ }
                 }
             }
             steps {
-                sh "cd $PROJECT_DIR && ./gradlew checkstyleMain"
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew checkstyleMain
+                '''
                 publishHTML(target: [
-                    reportDir: "$PROJECT_DIR/build/reports/checkstyle/main",
+                    reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
                     reportFiles: 'main.html',
                     reportName: "Checkstyle Report"
                 ])
             }
         }
 
-        stage('Validate Branch') {
+        stage('Validate Branch Name') {
             when {
                 not {
                     anyOf {
                         branch 'master'
-                        branch 'playground'
-                        expression { return env.BRANCH_NAME =~ /feature.*/ }
+                        expression { return env.BRANCH_NAME =~ /.*feature.*/ }
                     }
                 }
             }
             steps {
-                error 'Invalid branch: must be master, feature/*, or playground.'
+                error 'This branch is neither master nor a feature branch. Pipeline fails!'
             }
         }
 
         stage('Build & Push Docker Image') {
             when {
-                not { branch 'playground' }
+                branch 'feature/webhook-test'
             }
             steps {
                 script {
-                    def imageTag = ""
-                    def fullImageName = ""
+                    withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh '''
+                        cd Chapter08/sample1
+                        ./gradlew build
 
-                    if (env.BRANCH_NAME == 'master') {
-                        imageTag = "1.0"
-                        fullImageName = "${IMAGE_NAME}:${imageTag}"
-                    } else if (env.BRANCH_NAME.startsWith('feature')) {
-                        imageTag = "feature-0.1"
-                        fullImageName = "${IMAGE_NAME}-${imageTag}"
-                    }
-
-                    sh "which docker || (echo 'Docker not installed on this node!' && exit 1)"
-
-                    withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            cd $PROJECT_DIR
-                            ./gradlew build
-                            echo \$DOCKER_PASS | docker login https://$REGISTRY -u \$DOCKER_USER --password-stdin
-                            docker build -t $fullImageName .
-                            docker tag $fullImageName $REGISTRY/$fullImageName
-                            docker push $REGISTRY/$fullImageName
-                        """
+                        echo $PASS | docker login https://localhost:5001 -u $USER --password-stdin
+                        docker build -t $IMAGE_NAME .
+                        docker push $IMAGE_NAME
+                        '''
                     }
                 }
             }
