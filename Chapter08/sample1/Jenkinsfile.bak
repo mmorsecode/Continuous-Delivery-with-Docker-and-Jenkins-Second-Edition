@@ -1,0 +1,96 @@
+pipeline {
+    agent {
+        label 'docker-agent'
+    }
+
+    stages {
+        stage('Prepare Environment') {
+            steps {
+                sh '''
+                cd Chapter08/sample1
+                chmod +x gradlew
+                ls -l gradlew
+                '''
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew compileJava
+                '''
+            }
+        }
+
+        stage('Unit test') {
+            steps {
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew test
+                '''
+            }
+        }
+
+        stage('Code coverage') {
+            when {
+                branch 'master'
+            }
+            steps {
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew jacocoTestReport
+                '''
+                publishHTML(target: [
+                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
+                    reportFiles: 'index.html',
+                    reportName: "JaCoCo Code Coverage"
+                ])
+            }
+        }
+
+        stage('Static code analysis') {
+            when {
+                anyOf {
+                    changeRequest()
+                    branch 'master'
+                }
+            }
+            steps {
+                sh '''
+                cd Chapter08/sample1
+                ./gradlew checkstyleMain
+                '''
+                publishHTML(target: [
+                    reportDir: 'Chapter08/sample1/build/reports/checkstyle/main',
+                    reportFiles: 'main.html',
+                    reportName: "Checkstyle Report"
+                ])
+            }
+        }
+
+        stage('Validate Branch Name') {
+            when {
+                not {
+                    anyOf {
+                        branch 'master'
+                        expression { return env.BRANCH_NAME =~ /.*feature.*/ }
+                    }
+                }
+            }
+            steps {
+                error 'This branch is neither master nor a feature branch. Pipeline fails!'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'tests pass!'
+        }
+        failure {
+            echo 'tests fail!'
+        }
+    }
+}
+
