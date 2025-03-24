@@ -8,22 +8,20 @@ pipeline {
         REGISTRY_HOST  = "localhost:5001"
         PROJECT_DIR    = "Chapter08/sample1"
         IMAGE_NAME     = "calculator"
-        IMAGE_TAG      = "${BUILD_NUMBER}"
+        IMAGE_TAG      = "1.0"
     }
 
     stages {
         stage('Install Docker CLI') {
             steps {
-                sh '''
-                    apt-get update
-                    apt-get install -y docker.io
-                '''
+                sh 'apt-get update && apt-get install -y docker.io'
             }
         }
 
         stage('Checkout code and prepare environment') {
             steps {
-                git url: 'https://github.com/mmorsecode/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git', branch: 'feature/webhook-test'
+                git url: 'https://github.com/mmorsecode/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git',
+                    branch: "${env.BRANCH_NAME}"
                 sh '''
                     set -e
                     cd ${PROJECT_DIR}
@@ -32,8 +30,15 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Run Tests') {
             steps {
+                script {
+                    // Adjust image name and tag for feature branches
+                    if (!env.BRANCH_NAME.startsWith('master')) {
+                        env.IMAGE_NAME = "calculator-feature"
+                        env.IMAGE_TAG = "0.1"
+                    }
+                }
                 sh '''
                     set -e
                     cd ${PROJECT_DIR}
@@ -42,7 +47,30 @@ pipeline {
             }
         }
 
+        stage('Code Coverage') {
+            when {
+                branch 'master'
+            }
+            steps {
+                sh '''
+                    set -e
+                    cd ${PROJECT_DIR}
+                    ./gradlew jacocoTestReport
+                '''
+                publishHTML(target: [
+                    reportDir: "${PROJECT_DIR}/build/reports/jacoco/test/html",
+                    reportFiles: 'index.html',
+                    reportName: "JaCoCo Coverage Report"
+                ])
+            }
+        }
+
         stage('Login to Registry and build image') {
+            when {
+                not {
+                    branch 'playground'
+                }
+            }
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
