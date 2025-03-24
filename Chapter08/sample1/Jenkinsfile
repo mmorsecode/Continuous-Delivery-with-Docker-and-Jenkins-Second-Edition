@@ -1,6 +1,9 @@
 pipeline {
     agent {
-        label 'docker-agent'
+        docker {
+            image 'leszko/jenkins-docker-slave'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
     }
 
     environment {
